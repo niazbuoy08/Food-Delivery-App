@@ -147,6 +147,52 @@ limiter is what stands between it and abuse: 15 orders per IP per 10 minutes, an
 
 ---
 
+## Deploying to Render
+
+The app deploys as **one** service: Express serves the API *and* the built React
+app from the same origin, so there is no CORS to configure and only one URL.
+
+### 1. Open Atlas to the internet
+
+Render connects from addresses that change. In Atlas → **Network Access** →
+**Add IP Address** → **Allow access from anywhere** (`0.0.0.0/0`). Your database
+is still protected by its username and password.
+
+### 2. Push this repo to GitHub
+
+```bash
+git remote add origin https://github.com/YOUR_USERNAME/bistro-lumiere.git
+git branch -M main
+git push -u origin main
+```
+
+### 3. Create the service
+
+In Render: **New → Blueprint**, pick the repo. `render.yaml` sets the build and
+start commands, health check, and generates `JWT_SECRET` for you. Render will
+prompt for the values marked `sync: false`:
+
+| Variable | Value |
+|---|---|
+| `MONGO_URI` | Your Atlas string, with the real password and `/fooddelivery` in the path |
+| `ADMIN_EMAIL` | Whatever you seeded with |
+| `ADMIN_PASSWORD` | Your admin password |
+
+First build takes a few minutes. Your link is `https://<service-name>.onrender.com`.
+
+### 4. Seeding
+
+If your Atlas database already has the menu (because you ran `npm run seed`
+locally against it) there is nothing to do — the deployed app reads the same
+database. Otherwise run `npm run seed` locally once, pointed at the same
+`MONGO_URI`.
+
+> **The free tier sleeps.** After 15 minutes idle, the first request takes ~50
+> seconds to wake the service. Whoever you share the link with will see a slow
+> first load, then normal speed.
+
+---
+
 ## Before you deploy this
 
 This runs correctly, but a few things are demo-grade on purpose:
@@ -156,9 +202,14 @@ This runs correctly, but a few things are demo-grade on purpose:
   your use and not styled as a set. Replace them with real photography — drop
   files into `client/public/menu/` and point each dish at them from the admin
   menu editor.
-- **Swap in a real payment gateway.** `mockPayment.js` never charges anyone.
-- **Change the admin password** from whatever the seed script used, and use a
-  long random `JWT_SECRET`.
+- **Swap in a real payment gateway.** `mockPayment.js` never charges anyone. The
+  deployed site takes card numbers and always "succeeds" — do not let a real
+  customer near it.
+- **Rotate the Atlas database password** if it has ever been pasted anywhere.
+  Atlas → Database Access → Edit → Edit Password, then update `MONGO_URI` in
+  Render.
+- **Use a long random `JWT_SECRET`.** Render generates one; don't replace it with
+  something memorable.
 - **Order numbers are the only key to a tracking page.** They're random
   6-character codes (about a billion combinations) and the endpoint is
   rate-limited, but anyone holding the number can see the order's name, address
