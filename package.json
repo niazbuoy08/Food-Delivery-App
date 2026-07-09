@@ -17,7 +17,9 @@
     "install:all": "npm install && cd server && npm install && cd ../client && npm install",
 
     "//host": "Render runs these. render-build installs both workspaces and compiles React; start runs the API, which also serves client/dist.",
-    "render-build": "cd server && npm install && cd ../client && npm install && npm run build",
+
+    "//dev-deps": "NODE_ENV=production makes `npm install` imply --omit=dev. The client's build tools (vite, tailwind, postcss) are devDependencies, so without --include=dev the build dies with `vite: not found` (exit 127). The server needs no dev deps at runtime, so it omits them on purpose.",
+    "render-build": "cd server && npm install --omit=dev && cd ../client && npm install --include=dev && npm run build",
     "start": "node server/src/server.js"
   },
   "devDependencies": {
