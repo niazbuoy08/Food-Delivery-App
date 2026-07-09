@@ -1,0 +1,36 @@
+# Render blueprint. In the Render dashboard: New → Blueprint → pick this repo.
+# Everything below is applied automatically except the values marked `sync: false`,
+# which Render will prompt you for so secrets never live in this file.
+services:
+  - type: web
+    name: bistro-lumiere
+    runtime: node
+    plan: free
+    region: frankfurt # move closer to your users if you like
+    buildCommand: npm run render-build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Your MongoDB Atlas connection string, including the database name.
+      # Atlas → Network Access must allow 0.0.0.0/0 for Render to connect.
+      - key: MONGO_URI
+        sync: false
+
+      # Signs admin sessions. Render generates a random value for you.
+      - key: JWT_SECRET
+        generateValue: true
+
+      - key: JWT_EXPIRES_IN
+        value: 7d
+
+      # Only read by `npm run seed`. The running app never uses them, but the
+      # seed script refuses to start without them.
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_NAME
+        value: Restaurant Manager

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+
+# Never commit real credentials. server/.env.example is the template.
+.env
+.env.*
+!.env.example
+
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,26 @@
+{
+  "name": "bistro-lumiere",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A MERN food delivery app — open ordering for customers, authenticated admin for the restaurant.",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c yellow,cyan \"npm:dev:server\" \"npm:dev:client\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "seed": "npm --prefix server run seed",
+    "build": "npm --prefix client run build",
+
+    "//": "Use `cd X && npm install`, never `npm --prefix X install`. With no package argument the latter installs the CURRENT directory into the prefix, which adds a circular `bistro-lumiere: file:..` dependency to each workspace.",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+
+    "//host": "Render runs these. render-build installs both workspaces and compiles React; start runs the API, which also serves client/dist.",
+    "render-build": "cd server && npm install && cd ../client && npm install && npm run build",
+    "start": "node server/src/server.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
