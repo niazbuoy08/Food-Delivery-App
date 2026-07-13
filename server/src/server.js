@@ -6,7 +6,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 
-import { connectDB } from './config/db.js';
+import { connectDB, dbState } from './config/db.js';
 import menuRoutes from './routes/menuRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
@@ -52,7 +52,28 @@ if (!isProduction) {
 
 app.use(express.json({ limit: '100kb' }));
 
-app.get('/api/health', (_req, res) => res.json({ success: true, status: 'ok', time: new Date() }));
+// Reports honestly. If the database is down this returns 503 and says why —
+// far more useful than a service that simply never answers.
+app.get('/api/health', (_req, res) => {
+  const healthy = dbState.connected;
+  res.status(healthy ? 200 : 503).json({
+    success: healthy,
+    status: healthy ? 'ok' : 'degraded',
+    database: healthy ? 'connected' : 'unavailable',
+    ...(healthy ? {} : { reason: dbState.error, hint: 'Check MONGO_URI and Atlas → Network Access (allow 0.0.0.0/0).' }),
+    time: new Date(),
+  });
+});
+
+// Every data route needs the database. Without this they'd hang until Mongoose's
+// buffering timeout, which looks like the server is broken rather than the DB.
+app.use('/api/(menu|orders|admin)', (_req, res, next) => {
+  if (dbState.connected) return next();
+  res.status(503).json({
+    success: false,
+    message: 'The kitchen is offline right now. Please try again in a moment.',
+  });
+});
 
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
@@ -79,14 +100,34 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-await connectDB();
+// Bind the port FIRST in production. If we exited on a bad database config
+// before listening, the host would see no open port, hold every request open,
+// and the only symptom would be a timeout with no error anywhere. Listening
+// first means a misconfigured deploy still serves a page and tells you why.
+if (isProduction) {
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`  Server listening on port ${PORT} (production)`);
+  });
+  attachShutdown(server);
 
-const server = app.listen(PORT, () => {
-  console.log(`  Server listening on port ${PORT} (${isProduction ? 'production' : 'development'})`);
-});
+  await connectDB({ exitOnFailure: false });
+  if (!dbState.connected) {
+    console.error('  Serving in DEGRADED mode — the site loads but data routes return 503.');
+    console.error('  Fix the database config, then redeploy. GET /api/health for details.\n');
+  }
+} else {
+  // Locally, fail fast and loudly — you want the mistake in your face.
+  await connectDB({ exitOnFailure: true });
+  const server = app.listen(PORT, () => {
+    console.log(`  Server listening on port ${PORT} (development)`);
+  });
+  attachShutdown(server);
+}
 
-// Don't leave a half-dead process behind on an unhandled rejection.
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled rejection:', err);
-  server.close(() => process.exit(1));
-});
+function attachShutdown(server) {
+  // Don't leave a half-dead process behind on an unhandled rejection.
+  process.on('unhandledRejection', (err) => {
+    console.error('Unhandled rejection:', err);
+    server.close(() => process.exit(1));
+  });
+}
