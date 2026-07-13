@@ -82,15 +82,37 @@ app.use('/api/admin', adminRoutes);
 if (isProduction) {
   const clientDist = path.resolve(__dirname, '../../client/dist');
 
+  // Vite fingerprints these filenames with a content hash, so a given URL can
+  // never change meaning. Cache them hard and forever.
+  app.use(
+    '/assets',
+    express.static(path.join(clientDist, 'assets'), {
+      immutable: true,
+      maxAge: '1y',
+      redirect: false,
+      // A missing bundle must 404, not fall through to the SPA handler below.
+      // Otherwise a browser holding a stale index.html requests an old hash,
+      // gets index.html back with a 200 and Content-Type: text/html, tries to
+      // execute a web page as JavaScript, and renders nothing at all.
+      fallthrough: false,
+    })
+  );
+
+  // Everything else in dist: images, favicon. Safe to cache for a while.
   // `redirect: false` stops serve-static from 301-ing a request that happens to
   // match a directory name (e.g. /dishes) instead of letting it reach the SPA.
-  app.use(express.static(clientDist, { maxAge: '1d', redirect: false }));
+  app.use(express.static(clientDist, { maxAge: '1h', redirect: false, index: false }));
 
   // Any non-API path is a client route (/menu, /admin/orders, /order/BL-XXXXXX).
   // Hand it index.html and let React Router resolve it, so a hard refresh or a
   // shared tracking link doesn't 404.
   app.get('*', (req, res, next) => {
     if (req.path.startsWith('/api/')) return next();
+
+    // Never cache the HTML. It names the current asset hashes, so a stale copy
+    // points at bundles that no longer exist — which is a blank page that only
+    // a hard refresh can fix. Re-fetch it every time; it is 1 KB.
+    res.set('Cache-Control', 'no-cache, must-revalidate');
     res.sendFile(path.join(clientDist, 'index.html'));
   });
 }
