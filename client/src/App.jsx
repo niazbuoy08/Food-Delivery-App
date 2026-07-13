@@ -34,7 +34,17 @@ function StoreLayout({ children }) {
 // page opens at the top.
 function ScrollToTop() {
   const { pathname } = useLocation();
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+
+  // The braces matter. With a concise body — `useEffect(() => window.scrollTo(0, 0))`
+  // — the arrow returns whatever scrollTo() returns, and React takes an effect's
+  // return value to be its cleanup function. Chromium returns undefined so it
+  // gets ignored, but Edge returns a value: on the next navigation React tried to
+  // call it, threw "destroy is not a function", and unmounted the whole tree.
+  // The page went blank on every route change and only a reload brought it back.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
   return null;
 }
 
