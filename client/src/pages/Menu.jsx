@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Leaf, Search, SlidersHorizontal, X } from 'lucide-react';
+import { Leaf, Loader2, Search, SlidersHorizontal, X } from 'lucide-react';
 import api, { errorMessage } from '../lib/api';
+import { useSlowLoad } from '../lib/useSlowLoad';
 import MenuItemCard from '../components/MenuItemCard';
 
 export default function Menu() {
@@ -11,6 +12,7 @@ export default function Menu() {
   const [vegOnly, setVegOnly] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const isWakingServer = useSlowLoad(loading);
 
   // Fetch once and filter in the browser. The menu is small, so this keeps
   // category switching and typing instant instead of round-tripping per keystroke.
@@ -100,6 +102,14 @@ export default function Menu() {
           ))}
         </div>
       </div>
+
+      {loading && isWakingServer && (
+        <p className="mt-6 flex items-center gap-2.5 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800">
+          <Loader2 size={15} className="shrink-0 animate-spin" />
+          Waking the kitchen up — this demo runs on free hosting that sleeps when
+          idle, so the first load can take up to a minute. It's quick after that.
+        </p>
+      )}
 
       {loading && (
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
